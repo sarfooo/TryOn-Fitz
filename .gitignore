@@ -4,3 +4,6 @@ __pycache__/
 data/catalog.json
 data/catalog.tmp
 web/uploads/
+data/accounts.sqlite3
+data/accounts.sqlite3-shm
+data/accounts.sqlite3-wal

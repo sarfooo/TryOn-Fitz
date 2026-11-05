@@ -9,8 +9,10 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from uuid import uuid4
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import auth
 
 try:
     import tls_client
@@ -130,8 +132,70 @@ def update_catalog_item(listing_id, changes):
             item["images"] = images
             item["image"] = images[0]
             ALLOWED_GARMENT_URLS.update(url for url in images if url.startswith("https://"))
+        if "store_url" in changes:
+            item["store_url"] = validate_store_url(changes["store_url"])
+        if "sizes" in changes:
+            item["sizes"] = validate_sizes(changes["sizes"])
         save_catalog(items)
         return item
+
+
+def validate_store_url(value):
+    if value in (None, ""):
+        return None
+    parsed = urllib.parse.urlparse(str(value))
+    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+        raise ValueError("Store link must be an HTTPS URL")
+    return str(value)
+
+
+def validate_sizes(value):
+    if not isinstance(value, dict) or set(value) != {"S", "M", "L"}:
+        raise ValueError("Set stock for S, M, and L")
+    sizes = {}
+    for size, stock in value.items():
+        if isinstance(stock, bool) or not isinstance(stock, int) or not 0 <= stock <= 100000:
+            raise ValueError("Size stock must be a nonnegative whole number")
+        sizes[size] = stock
+    return sizes
+
+
+def create_catalog_item(payload):
+    name = str(payload.get("item_name") or "").strip()
+    if not 1 <= len(name) <= 160:
+        raise ValueError("Name is required (1–160 characters)")
+    try:
+        price = round(float(payload.get("price")), 2)
+    except (TypeError, ValueError):
+        raise ValueError("Price is required")
+    if not 0 < price <= 100000:
+        raise ValueError("Price must be greater than $0")
+    image = payload.get("image")
+    if not isinstance(image, str) or not image:
+        raise ValueError("A product picture is required")
+    sizes = validate_sizes(payload.get("sizes", {"S": 1, "M": 1, "L": 1}))
+    store_url = validate_store_url(payload.get("store_url"))
+    if not isinstance(payload.get("visible", False), bool):
+        raise ValueError("Visibility must be true or false")
+    data, mime = _load_image(image) if image.startswith("data:") else (None, None)
+    if data is not None:
+        suffix = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[mime]
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        image = "/uploads/" + uuid4().hex + "." + suffix
+        (UPLOAD_DIR / image.rsplit("/", 1)[-1]).write_bytes(data)
+    elif not image.startswith("https://"):
+        raise ValueError("Picture must be an uploaded image or HTTPS URL")
+    item = {"listing_id": "brand-" + uuid4().hex, "item_name": name, "price": price,
+            "image": image, "images": [image], "category": str(payload.get("category") or "Clothing")[:80],
+            "source": "Admin", "sizes": sizes, "store_url": store_url,
+            "visible": payload.get("visible", False)}
+    with CATALOG_LOCK:
+        items = load_catalog()
+        items.append(item)
+        save_catalog(items)
+    if image.startswith("https://"):
+        ALLOWED_GARMENT_URLS.add(image)
+    return item
 
 
 def upload_item_image(listing_id, data_url):
@@ -318,13 +382,36 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT / "web"), **kwargs)
 
-    def send_json(self, status, payload):
+    def send_json(self, status, payload, cookie=None):
         data = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         self.end_headers()
         self.wfile.write(data)
+
+    def current_user(self):
+        return auth.user_from_cookie(self.headers.get("Cookie"))
+
+    def require_admin(self):
+        user = self.current_user()
+        if user and user["role"] == "admin":
+            return True
+        self.send_json(403 if user else 401, {"error": "Brand owner access required"})
+        return False
+
+    def same_origin(self):
+        origin = self.headers.get("Origin")
+        if not origin:
+            return True
+        parsed = urllib.parse.urlparse(origin)
+        expected = self.headers.get("Host", "")
+        if parsed.scheme in {"http", "https"} and parsed.netloc == expected:
+            return True
+        self.send_json(403, {"error": "Cross-origin request blocked"})
+        return False
 
     def read_json(self):
         length = int(self.headers.get("Content-Length", "0"))
@@ -337,11 +424,14 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = urllib.parse.urlparse(self.path)
+        if path.path == "/api/me":
+            return self.send_json(200, {"user": self.current_user()})
         if path.path == "/api/config":
             return self.send_json(200, {"image_model": {"enabled": bool(os.getenv("GOOGLE_API_KEY")), "model": MODEL, "max_garments": 4}})
         if path.path == "/api/catalog":
             return self.send_json(200, {"items": [item for item in load_catalog() if item.get("visible")]})
         if path.path == "/api/admin/catalog":
+            if not self.require_admin(): return
             return self.send_json(200, {"items": load_catalog()})
         if path.path == "/api/samples":
             return self.send_json(200, {"items": SAMPLES})
@@ -357,12 +447,30 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(502, {"error": "Live Grailed search is unavailable: " + str(exc)})
         if path.path.startswith("/api/"):
             return self.send_json(404, {"error": "API route not found"})
+        if path.path == "/seller.html":
+            if not self.require_admin(): return
         if path.path == "/":
             self.path = "/index.html"
         return super().do_GET()
 
     def do_POST(self):
+        if not self.same_origin(): return
         try:
+            if self.path == "/api/signup":
+                payload = self.read_json()
+                user = auth.create_user(payload.get("email"), payload.get("password"))
+                token, user = auth.login(payload.get("email"), payload.get("password"))
+                return self.send_json(201, {"user": user}, auth.session_cookie(token))
+            if self.path == "/api/login":
+                payload = self.read_json()
+                token, user = auth.login(payload.get("email"), payload.get("password"))
+                return self.send_json(200, {"user": user}, auth.session_cookie(token))
+            if self.path == "/api/logout":
+                auth.logout(self.headers.get("Cookie"))
+                return self.send_json(200, {"ok": True}, auth.clear_cookie())
+            if self.path.startswith("/api/admin/") and not self.require_admin(): return
+            if self.path == "/api/admin/items":
+                return self.send_json(201, {"item": create_catalog_item(self.read_json())})
             if self.path == "/api/admin/import":
                 return self.send_json(200, import_catalog())
             if self.path.startswith("/api/admin/items/") and self.path.endswith("/upload"):
@@ -383,8 +491,17 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(502, {"error": str(exc)})
 
     def do_PATCH(self):
+        if not self.same_origin(): return
+        if self.path == "/api/me/mannequin":
+            user = self.current_user()
+            if not user: return self.send_json(401, {"error": "Log in to save your mannequin"})
+            try:
+                return self.send_json(200, {"user": auth.set_mannequin(user["id"], self.read_json().get("size"))})
+            except ValueError as exc:
+                return self.send_json(400, {"error": str(exc)})
         if not self.path.startswith("/api/admin/items/"):
             return self.send_json(404, {"error": "Not found"})
+        if not self.require_admin(): return
         try:
             listing_id = self.path.split("/")[4]
             return self.send_json(200, {"item": update_catalog_item(listing_id, self.read_json())})
@@ -396,5 +513,8 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
+    admin = auth.bootstrap_admin()
+    if admin:
+        print("Brand owner login: " + admin[0] + " / " + admin[1], flush=True)
     print("fitz demo: http://localhost:" + str(port), flush=True)
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()

@@ -1,6 +1,6 @@
 # TryOn Fitz
 
-A small, standalone demo extracted from [the fitz hackathon repo](https://github.com/sarfooo/-fitz). It has a client shop, a local seller panel, saved Grailed inventory, photo galleries, and Gemini outfit previews. A live Grailed search on Michael's Mac returned 40 listings on November 4, 2026.
+A small, standalone demo extracted from [the fitz hackathon repo](https://github.com/sarfooo/-fitz). It has a shopper catalog, account pages, a protected admin page, saved Grailed inventory, a basic mannequin preview, and optional Gemini photo previews. The interface uses a plain white mock design.
 
 ## Run
 
@@ -17,9 +17,11 @@ cd /Users/michael/fitz-demo
 python3 server.py
 ```
 
-Open `http://localhost:8000` for the client shop and `http://localhost:8000/seller.html` for the seller panel. The catalog works without a Gemini key. The repository includes 40 real Grailed listings in `data/catalog.seed.json`. On a fresh checkout, the seller panel shows those pieces immediately; edits are written to `data/catalog.json`. The import button can fetch more live listings from jackets, tees, jeans, and sneakers. Seller uploads live in `web/uploads/`. Edits and uploads survive server restarts. Seed and new imports start hidden until the seller publishes them.
+Open `http://localhost:8000` for the shop. On first run, the server prints a generated brand-owner login in the terminal. Set `FITZ_ADMIN_EMAIL` and `FITZ_ADMIN_PASSWORD` before the first run to choose your own. The admin page is at `/seller.html`; shoppers cannot access it. Accounts and mannequin choices are saved in `data/accounts.sqlite3`. The catalog works without a Gemini key. The repository includes 40 real Grailed listings in `data/catalog.seed.json`; edits are written to `data/catalog.json`. Seller uploads live in `web/uploads/`. These data files are local and ignored by Git.
 
-The seller can edit each item's display name and price, publish or hide it, fetch the full Grailed gallery when available, and add, upload, remove, or reorder up to 12 photos. The client can open a product to view its gallery, add up to four pieces to an outfit, and follow the original Grailed listing link. This is a local demo with no checkout or seller authentication; keep the server bound to localhost until those are built.
+The admin can add products with a name, price, picture, S/M/L stock and optional store URL. They can publish or hide products, edit details and photos, and import Grailed listings. Shoppers see only published items, can open a product gallery, choose an available size, and try the item on an S/M/L mannequin. The size choice persists for logged-in shoppers. Buy appears only when the admin enters a product URL. No actual store URL is bundled with this mock.
+
+This is a small MVC-style local demo: `auth.py` stores users and sessions, the catalog functions in `server.py` store product data, `Handler` in `server.py` handles requests, and `web/` holds the views. The mannequin preview is a local image overlay with a five-second timeout and Retry option. It is an approximate visual preview, especially for nontransparent product photos; it does not measure fit. Saved looks are planned for Sprint 2.
 
 ### Gemini image rendering
 
@@ -36,7 +38,7 @@ To test a real Grailed search separately from the UI, run `python3 test_grailed_
 | Grailed TLS session and Algolia search in `backend/scraper/api.py` | `/api/search` and saved 40-item import |
 | Multi-image Gemini composition in `backend/app/services/banana.py` | `/api/render` |
 | Avatar + garment selection in `TryOnPanel.tsx` | Client shop fitting room |
-| Supabase auth, credits, render jobs, angles | Omitted from the focused demo |
+| Supabase auth, credits, render jobs, angles | Local SQLite auth replaces Supabase for Sprint 1; credits, jobs, and angles are omitted |
 
 ## Optimization plan
 
@@ -48,4 +50,4 @@ Suggested measurement set: 20 outfits (single piece, top + bottom, layered outer
 
 ## Verification
 
-Run `python3 -m unittest discover -s tests -v`. The local tests cover Grailed request construction, catalog persistence and publishing, Gemini request construction, and garment limits. The user's networked terminal verified Grailed search. A real render still requires a Gemini API key and a networked run.
+Run `python3 -m unittest discover -s tests -v`. The tests cover accounts, duplicate email rejection, login, logout, saved mannequin choice, admin access checks, product validation, stock, store URLs, Grailed catalog persistence, and Gemini request construction. The user's networked terminal verified Grailed search. A real Gemini render still requires a key and a networked run.

@@ -18,7 +18,7 @@ function renderItems() {
     const meta = el('div', 'item-meta'); meta.append(el('span', '', item.category || 'GRAILED'), el('strong', '', money(item.price)));
     const title = el('button', 'item-title', item.item_name); title.type = 'button'; title.addEventListener('click', () => showDetail(item));
     const foot = el('div', 'item-foot'); foot.append(el('span', '', item.size ? 'Size ' + item.size : 'Grailed piece'));
-    const add = el('button', 'mini-button', selected(item) ? 'Added ✓' : 'Add +'); add.type = 'button'; add.disabled = selected(item) || state.selected.length >= state.imageModel.max_garments; add.addEventListener('click', () => addItem(item)); foot.append(add);
+    const tryOn = el('a', 'mini-button', 'Try On →'); tryOn.href = '/tryon.html?item=' + encodeURIComponent(item.listing_id); foot.append(tryOn);
     body.append(meta, title, foot); card.append(open, body); grid.append(card);
   }
 }
@@ -45,6 +45,13 @@ function showDetail(item) {
   state.detail = item; state.detailIndex = 0;
   $('#detail-category').textContent = item.category || 'GRAILED'; $('#detail-title').textContent = item.item_name;
   $('#detail-price').textContent = money(item.price); $('#detail-size').textContent = item.size ? 'Size ' + item.size : 'Size not listed';
+  const sizes = $('#detail-sizes'); sizes.replaceChildren();
+  if (item.sizes) for (const size of ['S', 'M', 'L']) { const button = el('button', 'size-chip', size); button.type = 'button'; button.disabled = !item.sizes[size]; button.title = button.disabled ? 'Sold out' : size + ' in stock'; button.addEventListener('click', () => { sizes.querySelectorAll('button').forEach((part) => part.classList.remove('selected')); button.classList.add('selected'); $('#detail-try').href = '/tryon.html?item=' + encodeURIComponent(item.listing_id) + '&size=' + size; }); sizes.append(button); }
+  const firstSize = ['S', 'M', 'L'].find((size) => item.sizes?.[size]) || '';
+  if (firstSize) sizes.querySelector('button:not(:disabled)')?.click();
+  $('#detail-try').href = '/tryon.html?item=' + encodeURIComponent(item.listing_id) + (firstSize ? '&size=' + firstSize : '');
+  $('#detail-try').hidden = Boolean(item.sizes) && !firstSize;
+  const buy = $('#detail-buy'); buy.hidden = !item.store_url; if (item.store_url) buy.href = item.store_url;
   const source = $('#detail-source'); source.href = item.product_url || '#'; source.hidden = !item.product_url;
   renderGallery(); updateDetailButton(); $('#item-dialog').showModal();
 }
