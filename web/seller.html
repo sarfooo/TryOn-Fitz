@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Manage the fitz demo catalog."><title>fitz · seller studio</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+  <header class="topbar"><a class="wordmark" href="/">fitz<span>.</span></a><nav><a href="/">Shop</a><a class="active" href="/seller.html">Seller panel</a></nav></header>
+  <main class="page seller-page">
+    <section class="hero"><div><span class="eyebrow">FITZ / SELLER STUDIO</span><h1>Make the edit.</h1><p>Pick what shoppers see. Set your prices. Give every piece its best photos.</p></div><a class="preview-link" href="/">Preview shop ↗</a></section>
+    <section class="seller-shell panel"><div class="seller-top"><div><span class="eyebrow">YOUR INVENTORY</span><h2>Curate the rack <span id="seller-count">0 saved</span></h2></div><button id="import-btn" class="primary-button" type="button">Import 40 Grailed items ↗</button></div>
+      <p id="seller-status" class="status seller-status" role="status">Loading saved pieces…</p>
+      <div class="seller-layout">
+        <aside class="inventory-pane"><label class="search-label" for="seller-filter">SEARCH INVENTORY</label><input id="seller-filter" type="search" placeholder="Search by item or ID"><div id="seller-items" class="inventory-list"></div></aside>
+        <section id="seller-editor" class="editor-pane" aria-label="Edit selected item"><div class="editor-empty"><span class="eyebrow">SELECT A PIECE</span><h3>Choose an item to edit.</h3><p>Your product details and gallery will appear here.</p></div></section>
+      </div>
+    </section>
+  </main><script src="/seller.js" defer></script>
+</body>
+</html>
