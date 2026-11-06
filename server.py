@@ -20,9 +20,10 @@ except ImportError:
     tls_client = None
 
 ROOT = Path(__file__).resolve().parent
-CATALOG_FILE = ROOT / "data" / "catalog.json"
+DATA_DIR = Path(os.getenv("FITZ_DATA_DIR", str(ROOT / "data")))
+CATALOG_FILE = DATA_DIR / "catalog.json"
 CATALOG_SEED_FILE = ROOT / "data" / "catalog.seed.json"
-UPLOAD_DIR = ROOT / "web" / "uploads"
+UPLOAD_DIR = Path(os.getenv("FITZ_UPLOAD_DIR", str(ROOT / "web" / "uploads")))
 CATALOG_LOCK = threading.Lock()
 MODEL = os.getenv("FITZ_IMAGE_MODEL", "gemini-3.1-flash-image")
 MAX_BODY = 36 * 1024 * 1024
@@ -382,6 +383,12 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT / "web"), **kwargs)
 
+    def translate_path(self, path):
+        url_path = urllib.parse.urlparse(path).path
+        if re.fullmatch(r"/uploads/[a-f0-9]{32}\.(jpg|png|webp)", url_path):
+            return str(UPLOAD_DIR / url_path.rsplit("/", 1)[-1])
+        return super().translate_path(path)
+
     def send_json(self, status, payload, cookie=None):
         data = json.dumps(payload).encode()
         self.send_response(status)
@@ -517,4 +524,4 @@ if __name__ == "__main__":
     if admin:
         print("Brand owner login: " + admin[0] + " / " + admin[1], flush=True)
     print("fitz demo: http://localhost:" + str(port), flush=True)
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    ThreadingHTTPServer((os.getenv("HOST", "127.0.0.1"), port), Handler).serve_forever()
