@@ -21,6 +21,8 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(len(items), 40)
         self.assertEqual(len({item["listing_id"] for item in items}), 40)
         self.assertTrue(all(item["source"] == "Grailed" and item["images"] for item in items))
+        published = [item for item in items if item.get("visible")]
+        self.assertTrue(any(item.get("store_url") == item.get("product_url") for item in published))
         with tempfile.TemporaryDirectory() as directory, patch.object(server, "CATALOG_FILE", Path(directory) / "catalog.json"):
             self.assertEqual(len(server.load_catalog()), 40)
 
