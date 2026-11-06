@@ -10,7 +10,7 @@ from contextlib import closing
 from http.cookies import SimpleCookie
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "data" / "accounts.sqlite3"
+DB_PATH = Path(os.getenv("FITZ_DATA_DIR", str(Path(__file__).resolve().parent / "data"))) / "accounts.sqlite3"
 SESSION_SECONDS = 7 * 24 * 60 * 60
 SIZES = {"S", "M", "L"}
 
