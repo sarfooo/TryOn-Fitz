@@ -520,6 +520,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
+    auth.bootstrap_demo_shopper()
     admin = auth.bootstrap_admin()
     if admin:
         print("Brand owner login: " + admin[0] + " / " + admin[1], flush=True)

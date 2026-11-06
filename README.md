@@ -17,15 +17,15 @@ cd /Users/michael/fitz-demo
 python3 server.py
 ```
 
-Open `http://localhost:8000` for the shop. On first run, the server prints a generated brand-owner login in the terminal. Set `FITZ_ADMIN_EMAIL` and `FITZ_ADMIN_PASSWORD` before the first run to choose your own. The admin page is at `/seller.html`; shoppers cannot access it. Accounts and mannequin choices are saved in `data/accounts.sqlite3`. The catalog works without a Gemini key. The repository includes 40 real Grailed listings in `data/catalog.seed.json`; edits are written to `data/catalog.json`. Seller uploads live in `web/uploads/`. These data files are local and ignored by Git.
+Open `http://localhost:8000` for the shop. The built-in shopper demo login is `shopper@tryonfitz.demo` / `DemoShopper123`. On each start, the server prints a generated brand-owner login in the terminal. Set `FITZ_ADMIN_EMAIL` and `FITZ_ADMIN_PASSWORD` to choose your own. The admin page is at `/seller.html`; shoppers cannot access it. Signup, login, sessions, and mannequin choices are simulated in server memory and reset on restart. The catalog works without a Gemini key. The repository includes 40 real Grailed listings in `data/catalog.seed.json`; edits are written to `data/catalog.json`. Seller uploads live in `web/uploads/`. These data files are local and ignored by Git.
 
 ## Deploy the prototype
 
-The repository includes a Render Blueprint in `render.yaml`. Connect this GitHub repository to Render and create a Blueprint from it. Render will use `PORT` and the Blueprint sets `HOST=0.0.0.0`. Set `FITZ_ADMIN_EMAIL` and `FITZ_ADMIN_PASSWORD` in the service environment before first launch if a chosen admin login is needed. The free service is suitable for a temporary demo, but its filesystem is ephemeral: accounts, mannequin preferences, catalog edits, and uploaded pictures can disappear on restart or after idle spin-down. For durable data, use a paid persistent disk mounted at `/var/data` and set both `FITZ_DATA_DIR=/var/data` and `FITZ_UPLOAD_DIR=/var/data/uploads` in the service environment. The seed catalog remains available after a reset.
+The repository includes a Render Blueprint in `render.yaml`. Connect this GitHub repository to Render and create a Blueprint from it. Render will use `PORT` and the Blueprint sets `HOST=0.0.0.0`. Set `FITZ_ADMIN_EMAIL` and `FITZ_ADMIN_PASSWORD` in the service environment if a chosen admin login is needed. The free service is suitable for a temporary demo, but its filesystem is ephemeral: catalog edits and uploaded pictures can disappear on restart or after idle spin-down. Simulated accounts and mannequin choices always reset on restart. For durable catalog data, use a paid persistent disk mounted at `/var/data` and set both `FITZ_DATA_DIR=/var/data` and `FITZ_UPLOAD_DIR=/var/data/uploads` in the service environment. The seed catalog remains available after a reset.
 
 The admin can add products with a name, price, picture, S/M/L stock and optional store URL. They can publish or hide products, edit details and photos, and import Grailed listings. Shoppers see only published items, can open a product gallery, choose an available size, and try the item on an S/M/L mannequin. The size choice persists for logged-in shoppers. Buy appears only when the admin enters a product URL. No actual store URL is bundled with this mock.
 
-This is a small MVC-style local demo: `auth.py` stores users and sessions, the catalog functions in `server.py` store product data, `Handler` in `server.py` handles requests, and `web/` holds the views. The mannequin preview is a local image overlay with a five-second timeout and Retry option. It is an approximate visual preview, especially for nontransparent product photos; it does not measure fit. Saved looks are planned for Sprint 2.
+This is a small MVC-style local demo: `auth.py` holds temporary users and sessions in server memory, the catalog functions in `server.py` store product data, `Handler` in `server.py` handles requests, and `web/` holds the views. The mannequin preview is a local image overlay with a five-second timeout and Retry option. It is an approximate visual preview, especially for nontransparent product photos; it does not measure fit. Saved looks are planned for Sprint 2.
 
 ### Gemini image rendering
 
@@ -42,7 +42,7 @@ To test a real Grailed search separately from the UI, run `python3 test_grailed_
 | Grailed TLS session and Algolia search in `backend/scraper/api.py` | `/api/search` and saved 40-item import |
 | Multi-image Gemini composition in `backend/app/services/banana.py` | `/api/render` |
 | Avatar + garment selection in `TryOnPanel.tsx` | Client shop fitting room |
-| Supabase auth, credits, render jobs, angles | Local SQLite auth replaces Supabase for Sprint 1; credits, jobs, and angles are omitted |
+| Supabase auth, credits, render jobs, angles | Temporary in-memory auth supports the Sprint 1 demo; credits, jobs, and angles are omitted |
 
 ## Optimization plan
 
