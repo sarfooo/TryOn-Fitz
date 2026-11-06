@@ -1,7 +1,8 @@
 const qs = (selector) => document.querySelector(selector);
 const params = new URLSearchParams(location.search);
 let currentItem = null;
-let bodySize = ['S', 'M', 'L'].includes(params.get('size')) ? params.get('size') : 'M';
+let bodySize = 'M';
+let bodyTouched = false;
 let selectedSize = ['S', 'M', 'L'].includes(params.get('size')) ? params.get('size') : null;
 let timeoutId = null;
 let attempt = 0;
@@ -12,6 +13,7 @@ function renderBodyOptions() {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'size-chip' + (size === bodySize ? ' selected' : ''); button.textContent = size;
     button.setAttribute('aria-pressed', String(size === bodySize));
     button.addEventListener('click', async () => {
+      bodyTouched = true;
       bodySize = size; renderBodyOptions(); qs('#mannequin-stage').dataset.size = size;
       try { const response = await fetch('/api/me/mannequin', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ size }) }); if (response.ok) qs('#save-note').textContent = 'Saved to your account.'; } catch (_) {}
     }); root.append(button);
@@ -53,5 +55,5 @@ fetch('/api/catalog').then((response) => response.json()).then(({ items }) => {
   qs('#buy-link').href = currentItem.store_url || '#'; qs('#buy-link').hidden = !currentItem.store_url;
   renderSizes(); preview();
 }).catch((error) => { qs('#tryon-status').textContent = 'Could not load the piece: ' + error.message; });
-fetch('/api/me').then((response) => response.json()).then(({ user }) => { if (user) { if (!params.has('size')) bodySize = user.mannequin; qs('#save-note').textContent = 'Your choice is saved to your account.'; renderBodyOptions(); qs('#mannequin-stage').dataset.size = bodySize; } }).catch(() => {});
+fetch('/api/me').then((response) => response.json()).then(({ user }) => { if (user) { if (!bodyTouched) bodySize = user.mannequin; qs('#save-note').textContent = 'Your choice is saved to your account.'; renderBodyOptions(); qs('#mannequin-stage').dataset.size = bodySize; } }).catch(() => {});
 renderBodyOptions(); qs('#mannequin-stage').dataset.size = bodySize;
