@@ -15,3 +15,4 @@ async function submitAccount(event, route, errorId) {
 }
 document.getElementById('signup-form').addEventListener('submit', (event) => submitAccount(event, '/api/signup', 'signup-error'));
 document.getElementById('login-form').addEventListener('submit', (event) => submitAccount(event, '/api/login', 'login-error'));
+document.getElementById('seller-login-note').hidden = new URLSearchParams(location.search).get('next') !== '/seller.html';

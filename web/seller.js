@@ -6,7 +6,7 @@ function itemById() { return state.items.find((item) => item.listing_id === stat
 async function api(url, options) {
   const response = await fetch(url, options);
   const type = response.headers.get('content-type') || '';
-  if (!type.includes('application/json')) throw Error('The server is running older code. Stop it, restart /usr/bin/python3 /Users/michael/fitz-demo/server.py, then refresh this page.');
+  if (!type.includes('application/json')) throw Error('Could not load seller data. Please refresh the page.');
   const data = await response.json(); if (!response.ok) throw Error(data.error || 'Request failed'); return data;
 }
 async function refresh() {
