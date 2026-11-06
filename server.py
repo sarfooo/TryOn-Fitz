@@ -454,14 +454,6 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(502, {"error": "Live Grailed search is unavailable: " + str(exc)})
         if path.path.startswith("/api/"):
             return self.send_json(404, {"error": "API route not found"})
-        if path.path == "/seller.html":
-            user = self.current_user()
-            if not user or user["role"] != "admin":
-                self.send_response(303)
-                self.send_header("Location", "/account.html?next=/seller.html")
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                return
         if path.path == "/":
             self.path = "/index.html"
         return super().do_GET()

@@ -1,5 +1,5 @@
 const $ = (selector) => document.querySelector(selector);
-const state = { items: [], selectedId: null, busy: false };
+const state = { items: [], selectedId: null, busy: false, canEdit: false };
 function el(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = String(text); return node; }
 function status(message, error = false) { const node = $('#seller-status'); node.textContent = message; node.classList.toggle('error', error); }
 function itemById() { return state.items.find((item) => item.listing_id === state.selectedId); }
@@ -10,7 +10,7 @@ async function api(url, options) {
   const data = await response.json(); if (!response.ok) throw Error(data.error || 'Request failed'); return data;
 }
 async function refresh() {
-  const data = await api('/api/admin/catalog'); state.items = data.items;
+  const data = await api(state.canEdit ? '/api/admin/catalog' : '/api/catalog'); state.items = data.items;
   if (!itemById()) state.selectedId = state.items[0]?.listing_id || null;
   render(); return data.items;
 }
@@ -36,14 +36,14 @@ function render() {
 function renderList() {
   const filter = $('#seller-filter').value.trim().toLowerCase(); const list = $('#seller-items'); list.replaceChildren();
   const items = state.items.filter((item) => (item.item_name + ' ' + item.listing_id).toLowerCase().includes(filter));
-  if (!items.length) { list.append(el('p', 'inventory-empty', state.items.length ? 'No matching pieces.' : 'No pieces saved yet. Import from Grailed to start.')); return; }
+  if (!items.length) { list.append(el('p', 'inventory-empty', state.items.length ? 'No matching pieces.' : 'No products to display.')); return; }
   for (const item of items) {
     const row = el('div', 'inventory-row' + (item.listing_id === state.selectedId ? ' selected' : ''));
-    const select = el('button', 'inventory-select'); select.type = 'button'; select.setAttribute('aria-label', 'Edit ' + item.item_name);
+    const select = el('button', 'inventory-select'); select.type = 'button'; select.setAttribute('aria-label', 'View ' + item.item_name);
     const photo = el('img'); photo.src = item.image; photo.alt = '';
     const info = el('span', 'inventory-info'); info.append(el('strong', '', item.item_name), el('small', '', '$' + Number(item.price || 0).toFixed(2)));
     select.append(photo, info); select.addEventListener('click', () => { state.selectedId = item.listing_id; render(); });
-    const publish = el('button', item.visible ? 'publish-pill is-live' : 'publish-pill', item.visible ? 'Live ✓' : 'Show in shop'); publish.type = 'button';
+    const publish = el('button', item.visible ? 'publish-pill is-live' : 'publish-pill', item.visible ? 'Live ✓' : 'Show in shop'); publish.type = 'button'; publish.disabled = !state.canEdit;
     publish.setAttribute('aria-label', item.visible ? 'Hide ' + item.item_name + ' from shop' : 'Show ' + item.item_name + ' in shop');
     publish.title = item.visible ? 'Click to hide from shoppers' : 'Click to publish for shoppers';
     publish.addEventListener('click', () => { state.selectedId = item.listing_id; save(item, { visible: !item.visible }); });
@@ -58,7 +58,7 @@ function renderEditor() {
   const source = el('a', 'source-link', 'Original listing ↗'); source.href = item.product_url || '#'; source.target = '_blank'; source.rel = 'noopener noreferrer'; heading.append(titleWrap); if (item.product_url) heading.append(source); root.append(heading);
   const publish = el('label', 'publish-bar' + (item.visible ? ' is-live' : '')); const publishText = el('span'); publishText.append(el('strong', '', item.visible ? 'Live in shop' : 'Hidden from shop'), el('small', '', item.visible ? 'Shoppers can see this piece.' : 'Only you can see this piece.'));
   const check = el('input'); check.type = 'checkbox'; check.checked = Boolean(item.visible); check.setAttribute('aria-label', 'Publish item'); check.addEventListener('change', () => save(item, { visible: check.checked })); publish.append(publishText, check); root.append(publish);
-  root.append(sectionHeading('01 / PRODUCT', 'Details', 'Saved when changed'));
+  root.append(sectionHeading('01 / PRODUCT', 'Details', state.canEdit ? 'Saved when changed' : 'Preview only'));
   const fields = el('div', 'editor-fields'); const nameLabel = el('label', '', 'Display name'); const name = el('input'); name.value = item.item_name; name.maxLength = 160; name.addEventListener('change', () => save(item, { item_name: name.value })); nameLabel.append(name);
   const priceLabel = el('label', '', 'Your price ($)'); const price = el('input'); price.type = 'number'; price.min = '0'; price.max = '100000'; price.step = '0.01'; price.value = Number(item.price || 0).toFixed(2); price.addEventListener('change', () => save(item, { price: price.value })); priceLabel.append(price);
   fields.append(nameLabel, priceLabel); root.append(fields);
@@ -74,6 +74,10 @@ function renderEditor() {
     const controls = el('div', 'editor-photo-controls'); const up = el('button', '', '←'); up.type = 'button'; up.title = 'Move earlier'; up.disabled = index === 0; up.addEventListener('click', () => { const images = [...item.images]; [images[index - 1], images[index]] = [images[index], images[index - 1]]; save(item, { images }); });
     const remove = el('button', '', '×'); remove.type = 'button'; remove.title = 'Remove photo'; remove.disabled = item.images.length === 1; remove.addEventListener('click', () => save(item, { images: item.images.filter((_, position) => position !== index) })); controls.append(up, remove); tile.append(image, controls); gallery.append(tile);
   }); root.append(gallery);
+  if (!state.canEdit) {
+    root.querySelectorAll('input, button').forEach((control) => { control.disabled = true; });
+    return;
+  }
   const actions = el('div', 'gallery-actions');
   if (/^\d+$/.test(item.listing_id)) { const fetchPhotos = el('button', 'outline-action', 'Fetch Grailed photos ↗'); fetchPhotos.type = 'button'; fetchPhotos.addEventListener('click', async () => { fetchPhotos.disabled = true; status('Fetching more photos for “' + item.item_name + '”…');
       try { const data = await api('/api/admin/items/' + encodeURIComponent(item.listing_id) + '/fetch-photos', { method: 'POST' }); Object.assign(item, data.item); status('Saved ' + item.images.length + ' photos for “' + item.item_name + '”.'); render(); }
@@ -99,4 +103,20 @@ $('#create-form').addEventListener('submit', async (event) => {
     form.reset(); state.selectedId = data.item.listing_id; await refresh(); statusNode.textContent = 'Saved “' + data.item.item_name + '”.' + (data.item.visible ? ' It is live in the shop.' : ' Publish it when ready.');
   } catch (error) { statusNode.textContent = error.message; } finally { button.disabled = false; }
 });
-refresh().then((items) => { if (!items.length) importItems(); else status(items.some((item) => item.visible) ? 'Use the buttons beside each piece to show or hide it in the shop.' : 'All saved pieces are hidden. Click “Show in shop” beside the items you want customers to see.'); }).catch((error) => status(error.message, true));
+async function init() {
+  const { user } = await api('/api/me');
+  state.canEdit = user?.role === 'admin';
+  $('.create-panel').hidden = !state.canEdit;
+  $('#import-btn').hidden = !state.canEdit;
+  const items = await refresh();
+  if (!state.canEdit) {
+    status('Seller studio preview. Browse the published products below.');
+    const link = el('a', '', 'Brand owner login');
+    link.href = '/account.html?next=/seller.html';
+    $('#seller-status').append(' ', link);
+    return;
+  }
+  if (!items.length) await importItems();
+  else status(items.some((item) => item.visible) ? 'Use the buttons beside each piece to show or hide it in the shop.' : 'All saved pieces are hidden. Click “Show in shop” beside the items you want customers to see.');
+}
+init().catch((error) => status(error.message, true));

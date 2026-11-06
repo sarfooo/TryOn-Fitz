@@ -60,19 +60,13 @@ class SprintOneTests(unittest.TestCase):
         handler.current_user = lambda: admin
         self.assertTrue(handler.require_admin())
 
-    def test_seller_page_sends_non_admin_to_login(self):
+    def test_seller_page_serves_html_without_login(self):
         handler = object.__new__(server.Handler)
         handler.path = "/seller.html"
-        sent = []
-        headers = {}
-        handler.send_response = sent.append
-        handler.send_header = lambda key, value: headers.__setitem__(key, value)
-        handler.end_headers = lambda: None
-        for user in (None, {"role": "shopper"}):
-            handler.current_user = lambda user=user: user
+        with patch.object(server.SimpleHTTPRequestHandler, "do_GET") as serve_static:
             handler.do_GET()
-            self.assertEqual(sent[-1], 303)
-            self.assertEqual(headers["Location"], "/account.html?next=/seller.html")
+            serve_static.assert_called_once_with()
+            self.assertEqual(handler.path, "/seller.html")
 
     def test_demo_accounts_clear_on_process_reset(self):
         auth.create_user("shopper@example.com", "correct123")

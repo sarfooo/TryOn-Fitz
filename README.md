@@ -1,6 +1,6 @@
 # TryOn Fitz
 
-A small, standalone demo extracted from [the fitz hackathon repo](https://github.com/sarfooo/-fitz). It has a shopper catalog, account pages, a protected admin page, saved Grailed inventory, a basic mannequin preview, and optional Gemini photo previews. The interface uses a plain white mock design.
+A small, standalone demo extracted from [the fitz hackathon repo](https://github.com/sarfooo/-fitz). It has a shopper catalog, account pages, a public seller studio preview with protected editing, saved Grailed inventory, a basic mannequin preview, and optional Gemini photo previews. The interface uses a plain white mock design.
 
 ## Run
 
@@ -17,7 +17,7 @@ cd /Users/michael/fitz-demo
 python3 server.py
 ```
 
-Open `http://localhost:8000` for the shop. The built-in shopper demo login is `shopper@tryonfitz.demo` / `DemoShopper123`. On each start, the server prints a generated brand-owner login in the terminal. Set `FITZ_ADMIN_EMAIL` and `FITZ_ADMIN_PASSWORD` to choose your own. The admin page is at `/seller.html`; shoppers cannot access it. Signup, login, sessions, and mannequin choices are simulated in server memory and reset on restart. The catalog works without a Gemini key. The repository includes 40 real Grailed listings in `data/catalog.seed.json`; edits are written to `data/catalog.json`. Seller uploads live in `web/uploads/`. These data files are local and ignored by Git.
+Open `http://localhost:8000` for the shop. The built-in shopper demo login is `shopper@tryonfitz.demo` / `DemoShopper123`. On each start, the server prints a generated brand-owner login in the terminal. Set `FITZ_ADMIN_EMAIL` and `FITZ_ADMIN_PASSWORD` to choose your own. Anyone can preview published inventory at `/seller.html`. Sign in as a brand owner to manage inventory. Signup, login, sessions, and mannequin choices are simulated in server memory and reset on restart. The catalog works without a Gemini key. The repository includes 40 real Grailed listings in `data/catalog.seed.json`; edits are written to `data/catalog.json`. Seller uploads live in `web/uploads/`. These data files are local and ignored by Git.
 
 ## Deploy the prototype
 
