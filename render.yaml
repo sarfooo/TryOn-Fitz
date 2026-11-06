@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: tryon-fitz-sprint1
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-grailed.txt
+    startCommand: python server.py
+    healthCheckPath: /api/catalog
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
